@@ -1,18 +1,23 @@
 import os
 import json
 import requests
-from  bs4 import BeautifulSoup as BS
+import concurrent.futures
+from bs4 import BeautifulSoup as BS
 
 GOOGLE_IMAGE = 'https://www.google.com/search?site=&tbm=isch&source=hp&biw=1873&bih=990&'
 
-user_agent = {"User-Agent": 'Mozilla/5.0 (X11; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0'}
+user_agent = {
+    "User-Agent": 'Mozilla/5.0 (X11; Linux x86_64; rv:72.0) Gecko/20100101 Firefox/72.0'
+    }
 
 SAVE_FOLDER = 'download_images/images'
+
 
 def main():
     if not os.path.exists(SAVE_FOLDER):
         os.mkdir(SAVE_FOLDER)
     download_images()
+
 
 def download_images():
     data = input('What are you looking for? ')
@@ -27,7 +32,7 @@ def download_images():
     html = response.text
 
     soup = BS(html, 'html.parser')
-    results = soup.findAll('div', {'class':'rg_meta'}, limit=n_images)
+    results = soup.findAll('div', {'class': 'rg_meta'}, limit=n_images)
 
     image_links = []
 
@@ -37,18 +42,24 @@ def download_images():
         text_dict = json.loads(text)
         link = text_dict['ou']
         image_links.append(link)
-    
+
     print(f"Found {len(image_links)} images")
 
     print('Start downloading...')
 
-    for i, image_link in enumerate(image_links):
-        response = requests.get(image_link)
+    # for i, image_link in enumerate(image_links):
+    def download_image(img_url):
+        img_bytes = requests.get(img_url).content
+        img_name = f"{SAVE_FOLDER}/{os.path.basename(img_url)}"
+        with open(img_name, 'wb') as img_file:
+            img_file.write(img_bytes)
+            print(f'{img_name} was downloaded...')
 
-        image_name = SAVE_FOLDER + '/' + data + str(i+1) + '.jpg'
-        with open(image_name, 'wb') as file:
-            file.write(response.content)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.map(download_image, image_links)
+
     print('Done')
+
 
 if __name__ == "__main__":
     main()
